@@ -171,20 +171,11 @@ real_t evGx[ 2560 ];
 /** Matrix of size: 160 x 6 (row major format) */
 real_t evGu[ 960 ];
 
-/** Column vector of size: 16 */
-real_t objAuxVar[ 16 ];
-
 /** Row vector of size: 22 */
 real_t objValueIn[ 22 ];
 
-/** Row vector of size: 51 */
-real_t objValueOut[ 51 ];
-
-/** Matrix of size: 16 x 16 (row major format) */
-real_t QN1[ 256 ];
-
-/** Matrix of size: 16 x 3 (row major format) */
-real_t QN2[ 48 ];
+/** Row vector of size: 22 */
+real_t objValueOut[ 22 ];
 
 /** Column vector of size: 16 */
 real_t Dx0[ 16 ];

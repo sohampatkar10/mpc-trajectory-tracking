@@ -1,8 +1,14 @@
 <launch>
-  <param name="robot_description" textfile="$(find opam)/urdf/airbot5.urdf"/>
+  <!-- <param name="robot_description" textfile="$(find opam)/urdf/airbot5.urdf"/> -->
+
+  <param name="states_file" type="string" value="$(find quad_arm_trajectory_tracking)/data/states.txt"/>
+  <param name="controls_file" type="string" value="$(find quad_arm_trajectory_tracking)/data/controls.txt"/>
+
+  <param name="reference_states" type="string" value="$(find opam)/data/states.txt"/>
+  <param name="reference_controls" type="string" value="$(find opam)/data/controls.txt"/>
 
   <node type="traj_tracking_sim" pkg="quad_arm_trajectory_tracking" name="traj_tracking_sim" output="screen"/>
 
-  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find urdf_tutorial)/urdf.rviz" required="true" />
+  <!-- <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" /> -->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find urdf_tutorial)/urdf.rviz" required="true" /> -->
 </launch>

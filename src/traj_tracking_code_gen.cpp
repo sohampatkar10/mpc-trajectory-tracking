@@ -47,8 +47,8 @@ int main(int argc, char** argv) {
   f << dot(q1) == qd1;
   f << dot(q2) == qd2; 
 
-  DMatrix Q(22, 22); Q.setIdentity(); Q *= 1e-4;
-  Q(0,0) = 1.0; Q(1,1) = 1.0; Q(1.0);
+  DMatrix Q(22, 22); Q.setIdentity();
+
   Function eta;
   eta << x0 << y0 << z0 
       << x1 << y1 << z1
@@ -68,9 +68,7 @@ int main(int argc, char** argv) {
   ocp.minimizeLSQ(Q, eta); // Trajectory Cost
 
   Function phi;
-  phi << x0 + (l1*cos(q1) + l2*cos(q1+q2))*cos(ga0);
-  phi << y0 + (l1*cos(q1) + l2*cos(q1+q2))*sin(ga0);
-  phi << z0 + (l1*sin(q1) + l2*sin(q1+q2));
+  phi << 0 << 0 << 0;
 
   DMatrix W(3,3);
   W(0,0) = 10.0; W(1,1) = 10.0; W(2,2) = 10.0;
@@ -91,7 +89,7 @@ int main(int argc, char** argv) {
   ocp.subjectTo(-1.0 <= ga1 <= 1.0);
 
   // double obs[] = {2.0, 2.5};
-  // double ora = 0.5;
+  // double ora = 0.7;
   // for(int ii = 0; ii < 2; ii++) {
   //   ocp.subjectTo((((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])*((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])
   //                  +((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)*((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)
