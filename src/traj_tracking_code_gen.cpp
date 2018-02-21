@@ -88,15 +88,15 @@ int main(int argc, char** argv) {
   ocp.subjectTo(-1.0 <= z1 <= 1.0);
   ocp.subjectTo(-1.0 <= ga1 <= 1.0);
 
-  // double obs[] = {2.0, 2.5};
-  // double ora = 0.7;
-  // for(int ii = 0; ii < 2; ii++) {
-  //   ocp.subjectTo((((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])*((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])
-  //                  +((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)*((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)
-  //                  +((z0 + l1*sin(q1) + l2*sin(q1 + q2))-obs[ii]-0.2)*((z0 + l1*sin(q1) + l2*sin(q1 + q2))-obs[ii]-0.2)) >= ora*ora);
+  double obs[] = {2.0, 2.5};
+  double ora = 0.7;
+  for(int ii = 0; ii < 2; ii++) {
+    ocp.subjectTo((((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])*((x0 + (l1*cos(q1) + l2*cos(q1 + q2))*cos(ga0))-obs[ii])
+                   +((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)*((y0 + (l1*cos(q1) + l2*cos(q1 + q2))*sin(ga0))-obs[ii]-0.2)
+                   +((z0 + l1*sin(q1) + l2*sin(q1 + q2))-obs[ii]-0.2)*((z0 + l1*sin(q1) + l2*sin(q1 + q2))-obs[ii]-0.2)) >= ora*ora);
 
-  //   ocp.subjectTo(((x0-obs[ii])*(x0-obs[ii])+(y0-obs[ii]-0.2)*(y0-obs[ii]-0.2)+(z0-obs[ii]-0.2)*(z0-obs[ii]-0.2)) >= ora*ora);
-  // }
+    ocp.subjectTo(((x0-obs[ii])*(x0-obs[ii])+(y0-obs[ii]-0.2)*(y0-obs[ii]-0.2)+(z0-obs[ii]-0.2)*(z0-obs[ii]-0.2)) >= ora*ora);
+  }
 
   OCPexport mpc(ocp);
 

@@ -46,6 +46,9 @@ int main(int argc, char** argv) {
   std::ifstream xref(reference_states);
   std::ifstream uref(reference_controls);
 
+  vector<double> ref_states;
+  vector<double> ref_controls;
+
   /* Initialize the solver. */
   acado_initializeSolver();
 
@@ -53,7 +56,7 @@ int main(int argc, char** argv) {
     std::string line;
     std::getline(xref, line);
     std::istringstream iss(line);
-    for(int x=0; x < NX; x++) 
+    for(int x=0; x < NX; x++)
       iss >> acadoVariables.y[i*NY + x];
     std::getline(uref, line);
     std::istringstream iss2(line);
