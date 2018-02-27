@@ -9,11 +9,13 @@ add_compile_options(-std=c++11)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
 	     tf
-	     sensor_msgs)
+	     sensor_msgs
+	     tf_conversions)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ACADO REQUIRED)
-
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -104,10 +106,10 @@ find_package(ACADO REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
+  INCLUDE_DIRS include
 #  LIBRARIES quad_arm_trajectory_tracking
 #  CATKIN_DEPENDS other_catkin_pkg
-  DEPENDS ACADO
+  DEPENDS ACADO Eigen3
 )
 
 ###########
