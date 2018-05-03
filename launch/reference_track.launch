@@ -1,0 +1,9 @@
+<launch>
+  <include file="$(find gazebo_aerial_manipulation_plugin)/launch/reference_tracking.launch"/>
+  <param name="robot_description" textfile="$(find quad_arm_trajectory_tracking)/urdf/matrice.urdf"/>
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find quad_arm_trajectory_tracking)/rviz/reference_tracking.rviz" required="true" />
+
+  <node pkg="quad_arm_trajectory_tracking" type="reference_tracking" name="tracking_node" output="screen"/>
+</launch>

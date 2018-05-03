@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package>
   <name>quad_arm_trajectory_tracking</name>
   <version>0.0.0</version>
   <description>The quad_arm_trajectory_tracking package</description>
@@ -50,7 +50,28 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>acado</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>tf_conversions</build_depend>
+  <build_depend>parsernode</build_depend>
+  <build_depend>class_loader</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>quad_simulator_parser</build_depend>
+  <build_depend>gazebo_aerial_manipulation_plugin</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
 
+  <run_depend>acado</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>tf_conversions</run_depend>
+  <run_depend>parsernode</run_depend>
+  <run_depend>class_loader</run_depend>
+  <run_depend>pluginlib</run_depend>
+  <run_depend>quad_simulator_parser</run_depend>
+  <run_depend>gazebo_aerial_manipulation_plugin</run_depend>
+  <run_depend>dynamic_reconfigure</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

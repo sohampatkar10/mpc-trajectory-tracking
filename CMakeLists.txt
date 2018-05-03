@@ -10,12 +10,29 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
 	     tf
 	     sensor_msgs
-	     tf_conversions)
+	     tf_conversions
+	     parsernode
+	     class_loader
+             pluginlib
+	     quad_simulator_parser
+	     gazebo_aerial_manipulation_plugin 
+	     dynamic_reconfigure
+)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(ACADO REQUIRED)
+include_directories(${ACADO_INCLUDE_DIRS})
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
+
+find_package(GCOP REQUIRED systems)
+include_directories(${GCOP_INCLUDE_DIRS})
+set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${GCOP_LIBRARIES})
+
+find_package(TinyXML REQUIRED)
+include_directories(${TINYXML_INCLUDE_DIR})
+set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -91,10 +108,10 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
+generate_dynamic_reconfigure_options(
+   cfg/Mpc.cfg
 #   cfg/DynReconf2.cfg
-# )
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -121,20 +138,21 @@ link_directories(${ACADO_LIBRARY_DIRS})
 ## Your package locations should be listed before other locations
 include_directories(
  include
- include/qpoases
- include/qpoases/INCLUDE
- include/qpoases/SRC
-# ${catkin_INCLUDE_DIRS}
+ ${catkin_INCLUDE_DIRS}
  ${ACADO_INCLUDE_DIRS}
 )
 
+add_library(${PROJECT_NAME} src/mpc_controller.cpp)
+target_link_libraries(${PROJECT_NAME} 
+	${catkin_LIBRARIES}
+        ${GCOP_LIBRARIES}
+	${TINYXML_LIBRARIES}
+	${ACADO_SHARED_LIBRARIES}
+)
+#add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_cfg)
 ## Declare a C++ library
-add_library(${PROJECT_NAME}
-   src/acado_qpoases_interface.cpp
-   src/acado_integrator.c
-   src/acado_auxiliary_functions.c
-   src/acado_solver.c
- )
+#add_library(${PROJECT_NAME}
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -144,8 +162,7 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(traj_tracking_code_gen src/traj_tracking_code_gen.cpp)
-add_executable(traj_tracking_sim src/traj_tracking_sim.cpp)
+add_executable(mpc_controller_node src/mpc_controller_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -158,16 +175,9 @@ add_executable(traj_tracking_sim src/traj_tracking_sim.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(traj_tracking_code_gen
-   ${catkin_LIBRARIES}
-   ${ACADO_SHARED_LIBRARIES}
-)
 
-target_link_libraries(traj_tracking_sim
-   ${PROJECT_SOURCE_DIR}/lib/libacado_exported_rti.a
-   ${catkin_LIBRARIES}
-   ${ACADO_SHARED_LIBRARIES}
-)
+target_link_libraries(mpc_controller_node ${catkin_LIBRARIES} ${ACADO_SHARED_LIBRARIES} ${PROJECT_NAME})
+add_dependencies(mpc_controller_node ${PROJECT_NAME}_gencfg)
 #############
 ## Install ##
 #############

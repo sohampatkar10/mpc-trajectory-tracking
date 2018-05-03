@@ -15,7 +15,7 @@ vxr = Xr(:,4); vyr = Xr(:,5); zr = Xr(:,6);
 
 q1r = Xr(:,15); q2r = Xr(:,16);
 
-t = 0:0.1:1;
-plot(t, axa, 'r')
+t = 0:5/(size(X,1)-1):5;
+plot(t, xa, 'r')
 hold on
-plot(t, axr(1:size(xa,1)), 'b')
+plot(t, xr, 'b')
