@@ -53,7 +53,7 @@ private:
   const double ki_p = 0.01;
   const double kp = 5.0;
   const double ki = 0.01;
-  const double kt = 0.107;
+  const double kt = 0.1;
 
   double cex = 0;
   double cey = 0;
@@ -90,7 +90,8 @@ private:
   double ts = 0.0;
   double te = 1.0;
   int numSteps = 10;
-  int totalSteps = 20;
+  int totalSteps = 40;
+  const int tfinal = 10;
   DifferentialEquation f;
 
   DifferentialState x0, y0, z0, 
@@ -112,9 +113,10 @@ private:
   nav_msgs::Path ref_path;
   nav_msgs::Path actual_path;
 
-  int to = 0;
+  int to;
+  ros::Time mpc_start_time;
 
-  int prop_steps = 1;
+  int prop_steps = 4;
   boost::shared_ptr<dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig> > reconfigserver;
   dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig>::CallbackType reconfigcallbacktype;
 };
