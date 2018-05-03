@@ -80,7 +80,7 @@ MPController::MPController() {
   for(int u=0; u < 6; u++)
     output_controls(prop_steps,u) = ref_controls[0][u];
 
-  controllerTimer = nh.createTimer(ros::Duration(0.01), &MPController::velocityControllerTimer, this);
+  controllerTimer = nh.createTimer(ros::Duration(0.001), &MPController::velocityControllerTimer, this);
   posControllerTimer = nh.createTimer(ros::Duration(0.05), &MPController::posControllerTimerCallback,this);
   mpcTimer = nh.createTimer(ros::Duration(te/double(numSteps)*double(prop_steps)), &MPController::mpcTimerCallback, this);
   hoverTimer = nh.createTimer(ros::Duration(0.02), &MPController::hoverCallback, this);
@@ -152,12 +152,19 @@ void MPController::posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPo
   quadVel.twist.angular.z = w.z();
   quadVel_.set(quadVel);
 
+  geometry_msgs::Vector3 lastAcc = quadAcc_.get();
   geometry_msgs::Vector3 quadAcc;
   dt = (quadVel.header.stamp - lastVel.header.stamp).toSec();
   quadAcc.x = (quadVel.twist.linear.x - lastVel.twist.linear.x)/dt;
   quadAcc.y = (quadVel.twist.linear.y - lastVel.twist.linear.y)/dt;
   quadAcc.z = (quadVel.twist.linear.z - lastVel.twist.linear.z)/dt;
   quadAcc_.set(quadAcc);
+
+  geometry_msgs::Vector3 quadJerk;
+  quadJerk.x = (quadAcc.x - lastAcc.x)/dt;
+  quadJerk.y = (quadAcc.y - lastAcc.y)/dt;
+  quadJerk.z = (quadAcc.z - lastAcc.z)/dt;
+  quadJerk_.set(quadJerk);
 }
 
 void MPController::velocityControllerTimer(const ros::TimerEvent& event) {
@@ -222,61 +229,59 @@ void MPController::setPosGoal(double px, double py, double pz, double yaw) {
 }
 
 void MPController::setAccGoal(double ax, double ay, double az, double y) {
-  ROS_INFO("Commanded : %f %f %f", ax, ay, az);
-  ros::Time ts = ros::Time::now();
+
   geometry_msgs::Vector3 quadAcc = quadAcc_.get();
-  while(abs(ax - quadAcc.x) > tolerance && 
-          abs(ay - quadAcc.y) > tolerance &&
-          abs(az - quadAcc.z) > tolerance) {
-    if((ros::Time::now() - ts).toSec() > 0.2) return;
-    ROS_INFO("Current : %f %f %f", quadAcc.x, quadAcc.y, quadAcc.z);
-    gazebo_aerial_manipulation_plugin::RollPitchYawThrust rpyt_msg;
+  gazebo_aerial_manipulation_plugin::RollPitchYawThrust rpyt_msg;
 
-    Eigen::Vector3d world_acc;
-    world_acc(0) = ax;
-    world_acc(1) = ay;
-    world_acc(2) = az;
+  ros::Time ts = ros::Time::now();
+  Eigen::Vector3d world_acc;
+  world_acc(0) = ax;
+  world_acc(1) = ay;
+  world_acc(2) = az;
 
-    // Compensate for gravity after limiting the residual
-    world_acc(2) += 9.81;
-    geometry_msgs::PoseStamped quadPose = quadPose_.get();
-    double yaw = tf::getYaw(quadPose.pose.orientation);
-    // Acceleration in gravity aligned yaw-compensated frame
-    Eigen::Vector3d rot_acc;
-    rot_acc[0] = world_acc(0) * cos(yaw) + world_acc(1) * sin(yaw);
-    rot_acc[1] = -world_acc(0) * sin(yaw) + world_acc(1) * cos(yaw);
-    rot_acc[2] = world_acc(2);
+  // Compensate for gravity after limiting the residual
+  world_acc(2) += 9.81;
+  geometry_msgs::PoseStamped quadPose = quadPose_.get();
+  double yaw = tf::getYaw(quadPose.pose.orientation);
+  // Acceleration in gravity aligned yaw-compensated frame
+  Eigen::Vector3d rot_acc;
+  rot_acc[0] = world_acc(0) * cos(yaw) + world_acc(1) * sin(yaw);
+  rot_acc[1] = -world_acc(0) * sin(yaw) + world_acc(1) * cos(yaw);
+  rot_acc[2] = world_acc(2);
 
-    // thrust is magnitude of acceleration scaled by kt
-    rpyt_msg.thrust = rot_acc.norm() / kt;
+  // thrust is magnitude of acceleration scaled by kt
+  rpyt_msg.thrust = rot_acc.norm() / 0.16;
 
-    rot_acc = rot_acc/rot_acc.norm();
-    // yaw-compensated y-acceleration is sine of roll
-    rpyt_msg.roll = -asin(rot_acc[1]);
-    rpyt_msg.pitch = atan2(rot_acc[0], rot_acc[2]);
-    rpyt_msg.yaw = y;
+  rot_acc = rot_acc/rot_acc.norm();
+  // yaw-compensated y-acceleration is sine of roll
+  rpyt_msg.roll = -asin(rot_acc[1]);
+  rpyt_msg.pitch = atan2(rot_acc[0], rot_acc[2]);
+  rpyt_msg.yaw = y;
 
-    rpyPub.publish(rpyt_msg);
-    ros::Duration(0.02).sleep();
-    quadAcc = quadAcc_.get();
-  }
+  rpyPub.publish(rpyt_msg);
+  quadAcc = quadAcc_.get();
 }
 
 void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
+
   geometry_msgs::PoseStamped quadPose = quadPose_.get();
   geometry_msgs::TwistStamped quadVel = quadVel_.get();
   geometry_msgs::Vector3 quadAcc = quadAcc_.get();
-  // ROS_INFO("Current : %f %f %f", quadAcc.x, quadAcc.y, quadAcc.z);
+  geometry_msgs::Vector3 quadJerk = quadJerk_.get();
+  // ROS_INFO("Current : %f %f %f", quadVel.twist.linear.x, quadVel.twist.linear.y, quadVel.twist.linear.z);
 
+  ROS_INFO("Current : %f %f %f", quadAcc.x, quadAcc.y, quadAcc.z);
+
+  int R = 5*numSteps/totalSteps;
   VariablesGrid reference_grid(22, timeGrid);
   VariablesGrid init_states(16, timeGrid);
   VariablesGrid init_controls(6, timeGrid);
   for(int t=0; t < numSteps; t++) {
-    int rt = ((t+to)/5 < totalSteps) ? (t+to)/5 : (totalSteps-1);
+    int rt = ((t+to)/R < totalSteps) ? (t+to)/R : (totalSteps-1);
+    double k = double((t+to)%R)/double(R);
+    int nt = (rt+1) < totalSteps ? (rt+1) : rt;
     for(int x=0; x < 16; x++) {
-      reference_grid(t,x) = ref_states[rt][x];
-      // if(x > 8 && x < 12)
-      //   reference_grid(t,x) = 0.0;
+      reference_grid(t,x) = (1.0-k)*ref_states[rt][x] + k*ref_states[nt][x];
     }
     for(int u = 4; u < 6; u++)
       reference_grid(t,16+u) = ref_controls[rt][u];
@@ -286,8 +291,12 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
       init_controls(t,u) = ref_controls[rt][u];
   }
 
+  ROS_INFO("Reference : ");
+  for(int t=0; t < numSteps; t++)
+    ROS_INFO("%f %f %f", reference_grid(t,6), reference_grid(t,7), reference_grid(t,8));
+    // ROS_INFO("%f %f %f", reference_grid(t,3), reference_grid(t,4), reference_grid(t,4));
+
   DMatrix Q(22,22); Q.setIdentity();
-  Q *= 10.0; 
 
   ACADO::Function eta;
   eta << x0 << y0 << z0
@@ -299,8 +308,8 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
       << x4 << y4 << z4
       << ga2 << qd1 << qd2;
 
-  IntermediateState T;
-  T = sqrt(x2*x2 + y2*y2 + (z2+9.81)*(z2+9.81));
+  // IntermediateState T;
+  // T = sqrt(x2*x2 + y2*y2 + (z2+9.81)*(z2+9.81));
 
   OCP ocp(timeGrid);
   ocp.subjectTo(f);
@@ -318,9 +327,9 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   ocp.subjectTo(AT_START, y2 == quadAcc.y);
   ocp.subjectTo(AT_START, z2 == quadAcc.z);
 
-  // ocp.subjectTo(AT_START, x3 == output_states(5,9));
-  // ocp.subjectTo(AT_START, y3 == output_states(5,10));
-  // ocp.subjectTo(AT_START, z3 == output_states(5,11));
+  ocp.subjectTo(AT_START, x3 == quadJerk.x);
+  ocp.subjectTo(AT_START, y3 == quadJerk.y);
+  ocp.subjectTo(AT_START, z3 == quadJerk.z);
 
   ocp.subjectTo(AT_START, ga0 == tf::getYaw(quadPose.pose.orientation));
   ocp.subjectTo(AT_START, ga1 == quadVel.twist.angular.z);
@@ -357,6 +366,7 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   algorithm->set( HESSIAN_APPROXIMATION, GAUSS_NEWTON);
   algorithm->set(KKT_TOLERANCE, 1e-7);
 
+  ros::Time ts = ros::Time::now();
   algorithm->initializeDifferentialStates(init_states);
   algorithm->initializeControls(init_controls);
   if(!algorithm->solve()) return;
@@ -364,25 +374,30 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   algorithm->getDifferentialStates(output_states);
   algorithm->getControls(output_controls);
 
-  // setGoal(output_states(5,3), output_states(5,4), 
-  //             output_states(5,5), output_states(5,13), output_states(5,12));
+  ROS_INFO("Output : ");
+  for(int t=0; t < numSteps; t++)
+    // ROS_INFO("%f %f %f", output_states(t,3), output_states(t,4), output_states(t,5));
+    ROS_INFO("%f %f %f", output_states(t,6), output_states(t,7), output_states(t,8));
 
-  gazebo_aerial_manipulation_plugin::JointCommand joint_command;
-  joint_command.header.stamp = ros::Time::now();
-  joint_command.desired_joint_angles.push_back(-output_states(prop_steps,14));
-  joint_command.desired_joint_angles.push_back(-output_states(prop_steps,15));
-  jointPub.publish(joint_command);
+  // gazebo_aerial_manipulation_plugin::JointCommand joint_command;
+  // joint_command.header.stamp = ros::Time::now();
+  // joint_command.desired_joint_angles.push_back(-output_states(prop_steps,14));
+  // joint_command.desired_joint_angles.push_back(-output_states(prop_steps,15));
+  // jointPub.publish(joint_command);
 
   setAccGoal(output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8), output_states(prop_steps,12));
-  // ROS_INFO("Commanded : %f %f %f", output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8));
+  // setGoal(output_states(prop_steps,3), output_states(prop_steps,4), output_states(prop_steps,5), output_states(prop_steps,12));
+  ROS_INFO("Commanded : %f %f %f", output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8));
+  // ROS_INFO("Commanded : %f %f %f", output_states(prop_steps,3), output_states(prop_steps,4), output_states(prop_steps,5));
+
+  ROS_INFO("Time  for MPC : %f", (ros::Time::now()-ts).toSec());
 
   to += prop_steps;
-  if(to == 5*numSteps) {
+  if(to >= 5*numSteps) {
     hoverTimer.start();
     controllerTimer.start();
     mpcTimer.stop();
   }
-
 }
 
 void MPController::posControllerTimerCallback(const ros::TimerEvent& event) {
@@ -409,6 +424,7 @@ void MPController::posControllerTimerCallback(const ros::TimerEvent& event) {
 }
 
 void MPController::hoverCallback(const ros::TimerEvent& event) {
+  ROS_INFO("Hover Callback");
   geometry_msgs::PoseStamped quadPose = quadPose_.get();
   setGoal(0.0, 0.0, 0.0, tf::getYaw(quadPose.pose.orientation));
 }
@@ -471,6 +487,7 @@ void MPController::reconfigureCallback(quad_arm_trajectory_tracking::MpcConfig &
 
   if(config.start_mpc) {
     config.start_mpc = false;
+    controllerTimer.stop();
     hoverTimer.stop();
     mpcTimer.start();
   }

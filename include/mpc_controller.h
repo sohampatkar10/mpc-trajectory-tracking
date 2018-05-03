@@ -34,6 +34,7 @@ public:
   void setPosGoal(double px, double py, double pz, double yaw);
 
   ros::CallbackQueue pose_callback_queue;
+  ros::CallbackQueue controller_callback_queue;
 private:
   void posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPose::ConstPtr& pose_msg);
   void posControllerTimerCallback(const ros::TimerEvent& event);
@@ -52,7 +53,8 @@ private:
   const double ki_p = 0.01;
   const double kp = 5.0;
   const double ki = 0.01;
-  const double kt = 0.0615;
+  const double kt = 0.107;
+
   double cex = 0;
   double cey = 0;
   double cez = 0;
@@ -79,6 +81,7 @@ private:
   Atomic<geometry_msgs::PoseStamped> quadPose_;
   Atomic<geometry_msgs::TwistStamped> quadVel_;
   Atomic<geometry_msgs::Vector3> quadAcc_;
+  Atomic<geometry_msgs::Vector3> quadJerk_;
   geometry_msgs::Vector3 goal;
   double goal_yaw;
   geometry_msgs::Vector3 goal_acc;
@@ -86,7 +89,7 @@ private:
 
   double ts = 0.0;
   double te = 1.0;
-  int numSteps = 20;
+  int numSteps = 10;
   int totalSteps = 20;
   DifferentialEquation f;
 
@@ -111,7 +114,7 @@ private:
 
   int to = 0;
 
-  int prop_steps = 10;
+  int prop_steps = 1;
   boost::shared_ptr<dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig> > reconfigserver;
   dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig>::CallbackType reconfigcallbacktype;
 };
