@@ -90,8 +90,8 @@ private:
   double ts = 0.0;
   double te = 1.0;
   int numSteps = 10;
-  int totalSteps = 40;
-  const int tfinal = 10;
+  int totalSteps = 20;
+  const int tfinal = 5;
   DifferentialEquation f;
 
   DifferentialState x0, y0, z0, 

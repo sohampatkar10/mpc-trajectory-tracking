@@ -27,8 +27,8 @@ MPController::MPController() {
   f << dot(q1) == qd1;
   f << dot(q2) == qd2;
 
-  std::string states_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_states.txt";
-  std::string controls_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_controls.txt";
+  std::string states_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_states_old.txt";
+  std::string controls_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_controls_old.txt";
   std::ifstream xref(states_file);
   std::ifstream uref(controls_file);
 
