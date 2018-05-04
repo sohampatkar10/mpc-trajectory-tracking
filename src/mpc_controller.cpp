@@ -27,8 +27,8 @@ MPController::MPController() {
   f << dot(q1) == qd1;
   f << dot(q2) == qd2;
 
-  std::string states_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_states_old.txt";
-  std::string controls_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_controls_old.txt";
+  std::string states_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_states.txt";
+  std::string controls_file = "/home/soham/ascol_ws/src/quad_arm_trajectory_tracking/data/reference_controls.txt";
   std::ifstream xref(states_file);
   std::ifstream uref(controls_file);
 
@@ -80,12 +80,9 @@ MPController::MPController() {
   for(int u=0; u < 6; u++)
     output_controls(prop_steps,u) = ref_controls[0][u];
 
-  double mpcTimerDuration = double(tfinal)/double(totalSteps);
-  // double mpcTimerDuration = double(prop_steps)*double(tfinal)/double(totalSteps);
-
-  controllerTimer = nh.createTimer(ros::Duration(0.01), &MPController::velocityControllerTimer, this);
+  controllerTimer = nh.createTimer(ros::Duration(0.02), &MPController::velocityControllerTimer, this);
   posControllerTimer = nh.createTimer(ros::Duration(0.05), &MPController::posControllerTimerCallback,this);
-  mpcTimer = nh.createTimer(ros::Duration(mpcTimerDuration), &MPController::mpcTimerCallback, this);
+  mpcTimer = nh.createTimer(ros::Duration(0.02), &MPController::mpcTimerCallback, this);
   hoverTimer = nh.createTimer(ros::Duration(0.02), &MPController::hoverCallback, this);
   rpyCmdTimer = nh.createTimer(ros::Duration(0.01), &MPController::rpyCmdTimerCallback, this);
   refPub = nh.advertise<nav_msgs::Path>("/ref_path",1);
@@ -177,6 +174,7 @@ void MPController::velocityControllerTimer(const ros::TimerEvent& event) {
   double ez = goal.z - quadVel.twist.linear.z;
 
   if(abs(ex) < tolerance && abs(ey) < tolerance && abs(ez) < tolerance) {
+    cex = 0; cey = 0; cez = 0;
     return;
   }
 
@@ -267,6 +265,16 @@ void MPController::setAccGoal(double ax, double ay, double az, double y) {
 }
 
 void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
+  ROS_INFO("Starting MPC Timer");
+  to = int((ros::Time::now()-mpc_start_time).toSec()*double(totalSteps)/double(tfinal));
+  ROS_INFO("to : %i", to);
+  if(to > totalSteps) {
+  // if(to > 5*prop_steps) {
+    hoverTimer.start();
+    controllerTimer.start();
+    mpcTimer.stop();
+    return;
+  }
 
   ros::Time t0 = ros::Time::now();
   geometry_msgs::PoseStamped quadPose = quadPose_.get();
@@ -278,16 +286,16 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
 
   // ROS_INFO("Current : %f %f %f", quadAcc.x, quadAcc.y, quadAcc.z);
 
-  int R = (totalSteps/tfinal);
+  int R = numSteps/(totalSteps/tfinal);
   VariablesGrid reference_grid(22, timeGrid);
   VariablesGrid init_states(16, timeGrid);
   VariablesGrid init_controls(6, timeGrid);
   for(int t=0; t < numSteps; t++) {
-    int rt = ((t+to)/R < totalSteps) ? (t+to)/R : (totalSteps-1);
-    double k = double((t+to)%R)/double(R);
-    int nt = (rt+1) < totalSteps ? (rt+1) : rt;
+    // int rt = ((t+to)/R < totalSteps) ? (t+to)/R : (totalSteps-1);
+    // double k = double((t+to)%R)/double(R);
+    int rt = (t/R+to) < totalSteps ? (t/R+to) : (totalSteps-1);
     for(int x=0; x < 16; x++) {
-      reference_grid(t,x) = (1.0-k)*ref_states[rt][x] + k*ref_states[nt][x];
+      reference_grid(t,x) = ref_states[rt][x];
     }
     for(int u = 4; u < 6; u++)
       reference_grid(t,16+u) = ref_controls[rt][u];
@@ -340,6 +348,25 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   ocp.subjectTo(AT_START, ga0 == tf::getYaw(quadPose.pose.orientation));
   ocp.subjectTo(AT_START, ga1 == quadVel.twist.angular.z);
 
+  // ocp.subjectTo(AT_START, x0 == output_states(prop_steps,0));
+  // ocp.subjectTo(AT_START, y0 == output_states(prop_steps,1));
+  // ocp.subjectTo(AT_START, z0 == output_states(prop_steps,2));
+
+  // ocp.subjectTo(AT_START, x1 == output_states(prop_steps,3));
+  // ocp.subjectTo(AT_START, y1 == output_states(prop_steps,4));
+  // ocp.subjectTo(AT_START, z1 == output_states(prop_steps,5));
+
+  // ocp.subjectTo(AT_START, x2 == output_states(prop_steps,6));
+  // ocp.subjectTo(AT_START, y2 == output_states(prop_steps,7));
+  // ocp.subjectTo(AT_START, z2 == output_states(prop_steps,8));
+
+  // ocp.subjectTo(AT_START, x3 == output_states(prop_steps,9));
+  // ocp.subjectTo(AT_START, y3 == output_states(prop_steps,10));
+  // ocp.subjectTo(AT_START, z3 == output_states(prop_steps,11));
+
+  // ocp.subjectTo(AT_START, ga0 == output_states(prop_steps,12));
+  // ocp.subjectTo(AT_START, ga1 == output_states(prop_steps,13));
+
   ocp.subjectTo(AT_START, q1 == output_states(prop_steps,14));
   ocp.subjectTo(AT_START, q2 == output_states(prop_steps,15));
 
@@ -357,9 +384,9 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   ocp.subjectTo(-0.78 <= qd1 <= 0.78); // joint velocity limits
   ocp.subjectTo(-0.78 <= qd2 <= 0.78);
 
-  ocp.subjectTo(-2.0 <= x1 <= 2.0);
-  ocp.subjectTo(-2.0 <= y1 <= 2.0);
-  ocp.subjectTo(-2.0 <= z1 <= 2.0);
+  ocp.subjectTo(-1.0 <= x1 <= 1.0);
+  ocp.subjectTo(-1.0 <= y1 <= 1.0);
+  ocp.subjectTo(-1.0 <= z1 <= 1.0);
   ocp.subjectTo(-1.0 <= ga1 <= 1.0);
 
   std::unique_ptr<OptimizationAlgorithm> algorithm;
@@ -370,14 +397,13 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   algorithm->set( INTEGRATOR_TYPE, INT_RK45);
   algorithm->set(DISCRETIZATION_TYPE, MULTIPLE_SHOOTING);
   algorithm->set( HESSIAN_APPROXIMATION, GAUSS_NEWTON);
-  algorithm->set(KKT_TOLERANCE, 1e-7);
+  algorithm->set(KKT_TOLERANCE, 1e-5);
 
-  ros::Time ts = ros::Time::now();
   algorithm->initializeDifferentialStates(init_states);
   algorithm->initializeControls(init_controls);
   if(!algorithm->solve()) {
-    to += prop_steps;
-    return;
+    // to += prop_steps;
+    // return;
   }
 
   algorithm->getDifferentialStates(output_states);
@@ -399,11 +425,13 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   // ROS_INFO("Commanded : %f %f %f", output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8));
 
   // ROS_INFO("Output : %f %f %f", output_states(prop_steps,3), output_states(prop_steps,4), output_states(prop_steps,5));
-  // ROS_INFO("Commanded : %f %f %f", reference_grid(prop_steps,3), reference_grid(prop_steps,4), reference_grid(prop_steps,5));
+  for(int t=0; t < numSteps; t++)
+    ROS_INFO("Reference : %f %f %f", reference_grid(t,3), reference_grid(t,4), reference_grid(t,5));
+  for(int t=0; t < numSteps; t++)
+    ROS_INFO("Output %f %f %f", output_states(t,3), output_states(t,4), output_states(t,5));
 
   setGoal(reference_grid(prop_steps,3), reference_grid(prop_steps,4), reference_grid(prop_steps,5), reference_grid(prop_steps,12));
   // setAccGoal(reference_grid(prop_steps,6), reference_grid(prop_steps,7), reference_grid(prop_steps,8), reference_grid(prop_steps,12));
-  to += prop_steps;
 
   gazebo_aerial_manipulation_plugin::JointCommand joint_command;
   joint_command.header.stamp = ros::Time::now();
@@ -411,14 +439,6 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   joint_command.desired_joint_angles.push_back(-reference_grid(prop_steps,15));
   jointPub.publish(joint_command);
 
-  ROS_INFO("Time taken : %f", (ros::Time::now()-t0).toSec());
-
-  if(to > prop_steps*(totalSteps)) {
-  // if(to > 5*prop_steps) {
-    hoverTimer.start();
-    controllerTimer.start();
-    mpcTimer.stop();
-  }
 }
 
 void MPController::posControllerTimerCallback(const ros::TimerEvent& event) {
@@ -521,6 +541,7 @@ void MPController::reconfigureCallback(quad_arm_trajectory_tracking::MpcConfig &
 
 void MPController::mpcTimerToggleCallback(const std_msgs::Bool::ConstPtr& msg) {
   if(msg->data) {
+    ROS_INFO("Starting MPC");
     posControllerTimer.stop();
     hoverTimer.stop();
     // controllerTimer.stop();
@@ -528,9 +549,11 @@ void MPController::mpcTimerToggleCallback(const std_msgs::Bool::ConstPtr& msg) {
     mpcTimer.start();
     // rpyCmdTimer.start();
   } else {
+    ROS_INFO("Stopping MPC");
     mpcTimer.stop();
     hoverTimer.start();
     controllerTimer.start();
+    to = 0;
   }
 }
 

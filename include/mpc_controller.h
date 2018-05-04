@@ -89,9 +89,9 @@ private:
 
   double ts = 0.0;
   double te = 1.0;
-  int numSteps = 10;
-  int totalSteps = 20;
-  const int tfinal = 5;
+  int numSteps = 20;
+  int totalSteps = 40;
+  const int tfinal = 10;
   DifferentialEquation f;
 
   DifferentialState x0, y0, z0, 
@@ -113,10 +113,10 @@ private:
   nav_msgs::Path ref_path;
   nav_msgs::Path actual_path;
 
-  int to;
+  int to = 0;
   ros::Time mpc_start_time;
 
-  int prop_steps = 4;
+  int prop_steps = 2;
   boost::shared_ptr<dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig> > reconfigserver;
   dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig>::CallbackType reconfigcallbacktype;
 };
