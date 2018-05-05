@@ -89,7 +89,7 @@ private:
 
   double ts = 0.0;
   double te = 1.0;
-  int numSteps = 20;
+  int numSteps = 4;
   int totalSteps = 40;
   const int tfinal = 10;
   DifferentialEquation f;
@@ -116,7 +116,13 @@ private:
   int to = 0;
   ros::Time mpc_start_time;
 
-  int prop_steps = 2;
+  std::ofstream output_file;
+  std::ofstream achieved_file;
+
+  Atomic<std::deque<geometry_msgs::PoseStamped>> measurements_;
+  Atomic<bool> buffer_ready_;
+
+  int prop_steps;
   boost::shared_ptr<dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig> > reconfigserver;
   dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig>::CallbackType reconfigcallbacktype;
 };

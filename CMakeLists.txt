@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+	     rospy
 	     tf
 	     sensor_msgs
 	     tf_conversions
@@ -67,11 +68,11 @@ set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
+ add_message_files(
+   FILES
+   FlatState.msg
 #   Message2.msg
-# )
+ )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -88,10 +89,11 @@ set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs  # Or other packages containing msgs
+   geometry_msgs  # Or other packages containing msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
