@@ -4,6 +4,7 @@ import rospy
 from quad_arm_trajectory_tracking.msg import FlatState
 from gazebo_aerial_manipulation_plugin.msg import RPYPose
 import numpy as np
+from tf import transformations
 
 class Filter():
   def __init__(self):
@@ -40,13 +41,20 @@ class Filter():
 
     flat_state = FlatState()
     flat_state.header.stamp = msg.header.stamp
-    flat_state.pose.position.x = msg.position.x
-    flat_state.pose.position.y = msg.position.y
-    flat_state.pose.position.z = msg.position.z
+    flat_state.pose.header.stamp = msg.header.stamp
+    flat_state.pose.pose.position.x = msg.position.x
+    flat_state.pose.pose.position.y = msg.position.y
+    flat_state.pose.pose.position.z = msg.position.z
+    q = transformations.quaternion_from_euler(msg.rpy.x, msg.rpy.y, msg.rpy.z)
+    flat_state.pose.pose.orientation.x = q[0]
+    flat_state.pose.pose.orientation.y = q[1]
+    flat_state.pose.pose.orientation.z = q[2]
+    flat_state.pose.pose.orientation.w = q[3]
 
-    flat_state.velocity.linear.x = ax[1] + 2.0*ax[2]*tc + 3.0*ax[3]*tc*tc
-    flat_state.velocity.linear.y = ay[1] + 2.0*ay[2]*tc + 3.0*ay[3]*tc*tc
-    flat_state.velocity.linear.z = az[1] + 2.0*az[2]*tc + 3.0*az[3]*tc*tc
+    flat_state.velocity.header.stamp = msg.header.stamp
+    flat_state.velocity.twist.linear.x = ax[1] + 2.0*ax[2]*tc + 3.0*ax[3]*tc*tc
+    flat_state.velocity.twist.linear.y = ay[1] + 2.0*ay[2]*tc + 3.0*ay[3]*tc*tc
+    flat_state.velocity.twist.linear.z = az[1] + 2.0*az[2]*tc + 3.0*az[3]*tc*tc
 
     flat_state.acceleration.x = 2.0*ax[2] + 6.0*ax[3]*tc
     flat_state.acceleration.y = 2.0*ay[2] + 6.0*ay[3]*tc

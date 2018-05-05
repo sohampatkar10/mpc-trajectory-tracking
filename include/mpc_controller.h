@@ -21,6 +21,7 @@
 #include <gazebo_aerial_manipulation_plugin/atomic.h>
 
 #include <quad_arm_trajectory_tracking/MpcConfig.h>
+#include <quad_arm_trajectory_tracking/FlatState.h>
 #include <dynamic_reconfigure/server.h>
 
 USING_NAMESPACE_ACADO
@@ -36,6 +37,7 @@ public:
   ros::CallbackQueue pose_callback_queue;
   ros::CallbackQueue controller_callback_queue;
 private:
+  // void posSubCallback(const quad_arm_trajectory_tracking::FlatState::ConstPtr& state_msg);
   void posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPose::ConstPtr& pose_msg);
   void posControllerTimerCallback(const ros::TimerEvent& event);
   void velocityControllerTimer(const ros::TimerEvent& event);
@@ -82,6 +84,7 @@ private:
   Atomic<geometry_msgs::TwistStamped> quadVel_;
   Atomic<geometry_msgs::Vector3> quadAcc_;
   Atomic<geometry_msgs::Vector3> quadJerk_;
+
   geometry_msgs::Vector3 goal;
   double goal_yaw;
   geometry_msgs::Vector3 goal_acc;
@@ -89,7 +92,7 @@ private:
 
   double ts = 0.0;
   double te = 1.0;
-  int numSteps = 4;
+  int numSteps = 10;
   int totalSteps = 40;
   const int tfinal = 10;
   DifferentialEquation f;

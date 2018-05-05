@@ -88,7 +88,7 @@ MPController::MPController() {
 
   controllerTimer = nh.createTimer(ros::Duration(0.02), &MPController::velocityControllerTimer, this);
   posControllerTimer = nh.createTimer(ros::Duration(0.05), &MPController::posControllerTimerCallback,this);
-  mpcTimer = nh.createTimer(ros::Duration(0.1), &MPController::mpcTimerCallback, this);
+  mpcTimer = nh.createTimer(ros::Duration(0.25), &MPController::mpcTimerCallback, this);
   hoverTimer = nh.createTimer(ros::Duration(0.02), &MPController::hoverCallback, this);
   rpyCmdTimer = nh.createTimer(ros::Duration(0.01), &MPController::rpyCmdTimerCallback, this);
   refPub = nh.advertise<nav_msgs::Path>("/ref_path",1);
@@ -97,6 +97,10 @@ MPController::MPController() {
   rpyPub = nh.advertise<gazebo_aerial_manipulation_plugin::RollPitchYawThrust>("/rpyt_command",1);
   posPub = nh.advertise<geometry_msgs::Pose>("/set_model_pose", 1);
   toggleSub = nh.subscribe("/toggle_mpc", 1, &MPController::mpcTimerToggleCallback, this);
+
+  // pose_so = ros::SubscribeOptions::create<quad_arm_trajectory_tracking::FlatState>("/flat_state",1,
+  //     boost::bind(&MPController::posSubCallback, this, _1), ros::VoidPtr(), &pose_callback_queue);
+  // posSub = nh.subscribe(pose_so);
 
   pose_so = ros::SubscribeOptions::create<gazebo_aerial_manipulation_plugin::RPYPose>("/base_pose",1,
       boost::bind(&MPController::posSubCallback, this, _1), ros::VoidPtr(), &pose_callback_queue);
@@ -121,6 +125,26 @@ MPController::MPController() {
   setPosGoal(ref_states[0][0], ref_states[0][1], ref_states[0][2], ref_states[0][12]);
 }
 
+// void MPController::posSubCallback(const quad_arm_trajectory_tracking::FlatState::ConstPtr& state_msg) {
+//   geometry_msgs::PoseStamped lastPos = quadPose_.get();
+//   geometry_msgs::PoseStamped quadPose = state_msg->pose;
+
+//   tf::Quaternion q; tf::quaternionMsgToTF(quadPose.pose.orientation, q);
+//   double r, p, y; tf::Matrix3x3(q).getRPY(r,p,y);
+
+//   tf::Quaternion ql; tf::quaternionMsgToTF(lastPos.pose.orientation, ql);
+//   double rl, pl, yl; tf::Matrix3x3(ql).getRPY(rl,pl,yl);
+
+//   double dt = (state_msg->header.stamp - lastPos.header.stamp).toSec();
+//   geometry_msgs::TwistStamped quadVel = state_msg->velocity;
+//   quadVel.twist.angular.z = (y-yl)/dt;
+
+//   quadPose_.set(quadPose);
+//   quadVel_.set(quadVel);
+//   quadAcc_.set(state_msg->acceleration);
+//   quadJerk_.set(state_msg->jerk);
+// }
+
 void MPController::posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPose::ConstPtr& pose_msg) {
 
   geometry_msgs::PoseStamped lastPos = quadPose_.get();
@@ -134,75 +158,6 @@ void MPController::posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPo
   quadPose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(pose_msg->rpy.x, pose_msg->rpy.y, pose_msg->rpy.z);
   quadPose.header.stamp = pose_msg->header.stamp;
   quadPose_.set(quadPose);
-
-  // std::deque<geometry_msgs::PoseStamped> measurements = measurements_.get();
-  // measurements.push_back(quadPose);
-
-  //   if(measurements.size() < 50) {
-  //     measurements_.set(measurements);
-  //     buffer_ready_.set(false);
-  //     return;
-  //   }
-
-  // buffer_ready_.set(true);
-  // Eigen::MatrixXd Ax(50, 4); Eigen::MatrixXd Ay(50, 4); Eigen::MatrixXd Az(50, 4);
-  // Eigen::VectorXd bx(50); Eigen::VectorXd by(50);  Eigen::VectorXd bz(50);
-  // ros::Time t0 = measurements.front().header.stamp;
-  // int t = 0;
-  // for(auto i = measurements.begin(); i != measurements.end(); i++) {
-  //   double dt = (i->header.stamp - t0).toSec();
-  //   Ax(t, 0) = 1.0; Ax(t, 1) = dt; Ax(t, 2) = dt*dt; Ax(t, 3) = dt*dt*dt;
-  //   Ay(t, 0) = 1.0; Ay(t, 1) = dt; Ay(t, 2) = dt*dt; Ax(t, 3) = dt*dt*dt;
-  //   Az(t, 0) = 1.0; Az(t, 1) = dt; Az(t, 2) = dt*dt; Ax(t, 3) = dt*dt*dt;
-
-  //   bx(t) = i->pose.position.x;  by(t) = i->pose.position.y;  bx(t) = i->pose.position.z;
-  //   t++;
-  // }
-
-  // measurements.pop_front();
-  // measurements_.set(measurements);
-
-  // Eigen::VectorXd Xx = (Ax.transpose()*Ax).inverse()*Ax.transpose()*bx;
-  // Eigen::VectorXd Xy = (Ay.transpose()*Ay).inverse()*Ay.transpose()*by;
-  // Eigen::VectorXd Xz = (Az.transpose()*Az).inverse()*Az.transpose()*bz;
-
-  // double a0x, a1x, a2x, a3x;
-  // double a0y, a1y, a2y, a3y;
-  // double a0z, a1z, a2z, a3z;
-
-  // a0x = Xx(0); a1x = Xx(1); a2x = Xx(2); a3x = Xx(3);
-  // a0y = Xy(0); a1y = Xy(1); a2y = Xy(2); a3y = Xy(3);
-  // a0z = Xz(0); a1z = Xz(1); a2z = Xz(2); a3z = Xz(3);
-
-  // // ROS_INFO("Parameters : %f %f %f %f", a0x, a1x, a2x, a3x);
-
-  // double tc = (pose_msg->header.stamp - t0).toSec();
-
-  // geometry_msgs::Vector3 quadJerk;
-  // quadJerk.x = 6.0*a3x;  quadJerk.y = 6.0*a3y;  quadJerk.z = 6.0*a3z;
-  // quadJerk_.set(quadJerk);
-
-  // geometry_msgs::Vector3 quadAcc;
-  // quadAcc.x = 2.0*a2x + 6.0*a3x*tc;
-  // quadAcc.y = 2.0*a2y + 6.0*a3y*tc;
-  // quadAcc.z = 2.0*a2z + 6.0*a3z*tc;
-  // quadAcc_.set(quadAcc);
-
-  // geometry_msgs::TwistStamped quadVel;
-  // quadVel.header.stamp = pose_msg->header.stamp;
-  // quadVel.twist.linear.x = a1x + 2.0*a2x*tc + 3.0*a3x*tc*tc;
-  // quadVel.twist.linear.y = a1y + 2.0*a2y*tc + 3.0*a3y*tc*tc;
-  // quadVel.twist.linear.z = a1z + 2.0*a2z*tc + 3.0*a3z*tc*tc;
-
-  // double dt = (quadPose.header.stamp - lastPos.header.stamp).toSec();
-  // tf::Quaternion q; tf::quaternionMsgToTF(quadPose.pose.orientation, q);
-  // double r, p, y; tf::Matrix3x3(q).getRPY(r,p,y);
-
-  // tf::Quaternion ql; tf::quaternionMsgToTF(lastPos.pose.orientation, ql);
-  // double rl, pl, yl; tf::Matrix3x3(ql).getRPY(rl,pl,yl);
-
-  // quadVel.twist.angular.z = (y-yl)/dt;
-  // quadVel_.set(quadVel);
 
   geometry_msgs::TwistStamped quadVel;
 
@@ -227,24 +182,19 @@ void MPController::posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPo
   quadVel.twist.angular.z = w.z();
   quadVel_.set(quadVel);
 
-  tf::Vector3 ahat;
+  geometry_msgs::Vector3 a;
   dt = (quadVel.header.stamp - lastVel.header.stamp).toSec();
-  ahat[0] = (quadVel.twist.linear.x - lastVel.twist.linear.x)/dt;
-  ahat[1] = (quadVel.twist.linear.y - lastVel.twist.linear.y)/dt;
-  ahat[2] = (quadVel.twist.linear.z - lastVel.twist.linear.z)/dt + 9.81;
+  a.x = (quadVel.twist.linear.x - lastVel.twist.linear.x)/dt;
+  a.y = (quadVel.twist.linear.y - lastVel.twist.linear.y)/dt;
+  a.z = (quadVel.twist.linear.z - lastVel.twist.linear.z)/dt;
 
-  tf::Vector3 bodyAcc = tf::Transform(q, tf::Vector3(0,0,0)).inverse()*ahat;
-  bodyAcc = tf::Vector3(0,0,bodyAcc.z());
-  tf::Vector3 astar = tf::Transform(q, tf::Vector3(0,0,0))*bodyAcc;
+  double T = sqrt(a.x*a.x + a.y*a.y + (a.z + 9.81)*(a.z + 9.81));
+
+  tf::Transform bodyTf = tf::Transform(q, tf::Vector3(0,0,0));
+  tf::Vector3 bodyAcc = bodyTf.inverse()*tf::Vector3(0,0,T);
 
   geometry_msgs::Vector3 quadAcc;
-  quadAcc.x = astar.x(); quadAcc.y = astar.y(); quadAcc.z = astar.z() - 9.81;
-
-  // geometry_msgs::Vector3 quadAcc;
-  // dt = (quadVel.header.stamp - lastVel.header.stamp).toSec();
-  // quadAcc.x = (quadVel.twist.linear.x - lastVel.twist.linear.x)/dt;
-  // quadAcc.y = (quadVel.twist.linear.y - lastVel.twist.linear.y)/dt;
-  // quadAcc.z = (quadVel.twist.linear.z - lastVel.twist.linear.z)/dt;
+  quadAcc.x = bodyAcc.x(); quadAcc.y = bodyAcc.y(); quadAcc.z = bodyAcc.z()-9.81;
   quadAcc_.set(quadAcc);
 
   geometry_msgs::Vector3 quadJerk;
@@ -369,6 +319,7 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   VariablesGrid reference_grid(22, timeGrid);
   VariablesGrid init_states(16, timeGrid);
   VariablesGrid init_controls(6, timeGrid);
+
   for(int t=0; t < numSteps; t++) {
     // int rt = ((t+to)/R < totalSteps) ? (t+to)/R : (totalSteps-1);
     // double k = double((t+to)%R)/double(R);
@@ -387,11 +338,6 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
       init_controls(t,u) = ref_controls[rt][u];
   }
 
-  // // ROS_INFO("Reference : ");
-  // // for(int t=0; t < numSteps; t++)
-  // //   // ROS_INFO("%f %f %f", reference_grid(t,6), reference_grid(t,7), reference_grid(t,8));
-  // //   ROS_INFO("%f %f %f", reference_grid(t,3), reference_grid(t,4), reference_grid(t,4));
-
   DMatrix Q(22,22); Q.setIdentity();
 
   ACADO::Function eta;
@@ -403,6 +349,20 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
       << q1 << q2
       << x4 << y4 << z4
       << ga2 << qd1 << qd2;
+
+  DVector final_state(16);
+  for(int x=0; x < 16; x++) 
+    final_state(x) = ref_states[totalSteps-1][x];
+
+  ACADO::Function phi;
+  phi << x0 << y0 << z0
+      << x1 << y1 << z1
+      << x2 << y2 << z2
+      << x3 << y3 << z3
+      << ga0 << ga1
+      << q1 << q2;
+
+  DMatrix W(16, 16); W.setIdentity();
 
   IntermediateState r,p,T;
   T = sqrt(x2*x2 + y2*y2 + (z2+9.81)*(z2+9.81));
@@ -416,19 +376,32 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   OCP ocp(timeGrid);
   ocp.subjectTo(f);
   ocp.minimizeLSQ(Q, eta, reference_grid);
+  // ocp.minimizeLSQEndTerm(W, phi, final_state);
 
   geometry_msgs::PoseStamped quadPose = quadPose_.get();
   geometry_msgs::TwistStamped quadVel = quadVel_.get();
   geometry_msgs::Vector3 quadAcc = quadAcc_.get();
   geometry_msgs::Vector3 quadJerk = quadJerk_.get();
 
+  ROS_INFO("From sensor : %f %f %f, From Opti : %f %f %f", 
+    quadVel.twist.linear.x, quadVel.twist.linear.y, quadVel.twist.linear.z, 
+    output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8));
+
+  // ocp.subjectTo(AT_START, x0 == quadPose.pose.position.x);
+  // ocp.subjectTo(AT_START, y0 == quadPose.pose.position.y);
+  // ocp.subjectTo(AT_START, z0 == quadPose.pose.position.z);
+
+  // ocp.subjectTo(AT_START, x1 == quadVel.twist.linear.x);
+  // ocp.subjectTo(AT_START, y1 == quadVel.twist.linear.y);
+  // ocp.subjectTo(AT_START, z1 == quadVel.twist.linear.z);
+
   ocp.subjectTo(AT_START, x0 == quadPose.pose.position.x);
   ocp.subjectTo(AT_START, y0 == quadPose.pose.position.y);
   ocp.subjectTo(AT_START, z0 == quadPose.pose.position.z);
 
-  ocp.subjectTo(AT_START, x1 == quadVel.twist.linear.x);
-  ocp.subjectTo(AT_START, y1 == quadVel.twist.linear.y);
-  ocp.subjectTo(AT_START, z1 == quadVel.twist.linear.z);
+  ocp.subjectTo(AT_START, x1 == output_states(prop_steps,3));
+  ocp.subjectTo(AT_START, y1 == output_states(prop_steps,4));
+  ocp.subjectTo(AT_START, z1 == output_states(prop_steps,5));
 
   ocp.subjectTo(AT_START, x2 == output_states(prop_steps,6));
   ocp.subjectTo(AT_START, y2 == output_states(prop_steps,7));
@@ -439,7 +412,7 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   ocp.subjectTo(AT_START, z3 == output_states(prop_steps, 11));
 
   ocp.subjectTo(AT_START, ga0 == tf::getYaw(quadPose.pose.orientation));
-  ocp.subjectTo(AT_START, ga1 == quadVel.twist.angular.z);
+  ocp.subjectTo(AT_START, ga1 == output_states(prop_steps, 13));
 
   ocp.subjectTo(AT_START, q1 == output_states(prop_steps,14));
   ocp.subjectTo(AT_START, q2 == output_states(prop_steps,15));
@@ -491,11 +464,11 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   // ROS_INFO("Output : %f %f %f", output_states(prop_steps,3), 
   //   output_states(prop_steps,4), output_states(prop_steps,5));
 
-  ROS_INFO("Velocity:");
-  for(int t=0; t < numSteps; t++)
-    ROS_INFO("Reference : %f %f %f", reference_grid(t,3), reference_grid(t,4), reference_grid(t,5));
-  for(int t=0; t < numSteps; t++) 
-    ROS_INFO("Output %f %f %f", output_states(t,3), output_states(t,4), output_states(t,5));
+  // ROS_INFO("Velocity:");
+  // for(int t=0; t < numSteps; t++)
+  //   ROS_INFO("Reference : %f %f %f", reference_grid(t,3), reference_grid(t,4), reference_grid(t,5));
+  // for(int t=0; t < numSteps; t++) 
+  //   ROS_INFO("Output %f %f %f", output_states(t,3), output_states(t,4), output_states(t,5));
 
   achieved_file << quadPose.pose.position.x <<" "
                 << quadPose.pose.position.y <<" "
@@ -526,11 +499,6 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
 }
 
 void MPController::posControllerTimerCallback(const ros::TimerEvent& event) {
-
-  // if(!buffer_ready_.get()) {
-  //   ROS_INFO("Buffer not full yet");
-  //   return;
-  // }
 
   geometry_msgs::PoseStamped quadPose = quadPose_.get();
   double ex = goal_pos.x - quadPose.pose.position.x;
