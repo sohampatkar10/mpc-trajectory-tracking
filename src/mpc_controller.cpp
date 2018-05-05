@@ -88,7 +88,7 @@ MPController::MPController() {
 
   controllerTimer = nh.createTimer(ros::Duration(0.02), &MPController::velocityControllerTimer, this);
   posControllerTimer = nh.createTimer(ros::Duration(0.05), &MPController::posControllerTimerCallback,this);
-  mpcTimer = nh.createTimer(ros::Duration(0.25), &MPController::mpcTimerCallback, this);
+  mpcTimer = nh.createTimer(ros::Duration(0.05), &MPController::mpcTimerCallback, this);
   hoverTimer = nh.createTimer(ros::Duration(0.02), &MPController::hoverCallback, this);
   rpyCmdTimer = nh.createTimer(ros::Duration(0.01), &MPController::rpyCmdTimerCallback, this);
   refPub = nh.advertise<nav_msgs::Path>("/ref_path",1);
@@ -391,17 +391,17 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
   // ocp.subjectTo(AT_START, y0 == quadPose.pose.position.y);
   // ocp.subjectTo(AT_START, z0 == quadPose.pose.position.z);
 
-  // ocp.subjectTo(AT_START, x1 == quadVel.twist.linear.x);
-  // ocp.subjectTo(AT_START, y1 == quadVel.twist.linear.y);
-  // ocp.subjectTo(AT_START, z1 == quadVel.twist.linear.z);
+  ocp.subjectTo(AT_START, x1 == quadVel.twist.linear.x);
+  ocp.subjectTo(AT_START, y1 == quadVel.twist.linear.y);
+  ocp.subjectTo(AT_START, z1 == quadVel.twist.linear.z);
 
   ocp.subjectTo(AT_START, x0 == quadPose.pose.position.x);
   ocp.subjectTo(AT_START, y0 == quadPose.pose.position.y);
   ocp.subjectTo(AT_START, z0 == quadPose.pose.position.z);
 
-  ocp.subjectTo(AT_START, x1 == output_states(prop_steps,3));
-  ocp.subjectTo(AT_START, y1 == output_states(prop_steps,4));
-  ocp.subjectTo(AT_START, z1 == output_states(prop_steps,5));
+  // ocp.subjectTo(AT_START, x1 == output_states(prop_steps,3));
+  // ocp.subjectTo(AT_START, y1 == output_states(prop_steps,4));
+  // ocp.subjectTo(AT_START, z1 == output_states(prop_steps,5));
 
   ocp.subjectTo(AT_START, x2 == output_states(prop_steps,6));
   ocp.subjectTo(AT_START, y2 == output_states(prop_steps,7));
@@ -487,8 +487,8 @@ void MPController::mpcTimerCallback(const ros::TimerEvent& event) {
                  output_states(prop_steps,5) <<"\n";
 
   // setAccGoal(reference_grid(prop_steps,6), reference_grid(prop_steps,7), reference_grid(prop_steps,8), reference_grid(prop_steps,12));
-  // setAccGoal(output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8), output_states(prop_steps,12));
-  setGoal(output_states(prop_steps,3), output_states(prop_steps,4), output_states(prop_steps,5), output_states(prop_steps,12));
+  setAccGoal(output_states(prop_steps,6), output_states(prop_steps,7), output_states(prop_steps,8), output_states(prop_steps,12));
+  // setGoal(output_states(prop_steps,3), output_states(prop_steps,4), output_states(prop_steps,5), output_states(prop_steps,12));
   // setGoal(reference_grid(prop_steps,3), reference_grid(prop_steps,4), reference_grid(prop_steps,5), reference_grid(prop_steps,12));
   // setPosGoal(reference_grid(prop_steps,0), reference_grid(prop_steps,1), reference_grid(prop_steps,2), reference_grid(prop_steps,12));
   gazebo_aerial_manipulation_plugin::JointCommand joint_command;
