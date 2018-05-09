@@ -17,7 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
              pluginlib
 	     quad_simulator_parser
 	     gazebo_aerial_manipulation_plugin 
-	     dynamic_reconfigure
 )
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -68,11 +67,11 @@ set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- add_message_files(
-   FILES
-   FlatState.msg
+# add_message_files(
+#   FILES
+#   FlatState.msg
 #   Message2.msg
- )
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -89,11 +88,11 @@ set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
 # )
 
 ## Generate added messages and services with any dependencies listed here
- generate_messages(
-   DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
-   geometry_msgs  # Or other packages containing msgs
- )
+# generate_messages(
+#   DEPENDENCIES
+#   std_msgs  # Or other packages containing msgs
+#   geometry_msgs  # Or other packages containing msgs
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -110,10 +109,10 @@ set(QUAD_SIM_PARSER_LIBS ${QUAD_SIM_PARSER_LIBS} ${TINYXML_LIBRARIES})
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-generate_dynamic_reconfigure_options(
-   cfg/Mpc.cfg
+# generate_dynamic_reconfigure_options(
+#   cfg/Mpc.cfg
 #   cfg/DynReconf2.cfg
- )
+# )
 
 ###################################
 ## catkin specific configuration ##
@@ -179,7 +178,6 @@ add_executable(mpc_controller_node src/mpc_controller_node.cpp)
 ## Specify libraries to link a library or executable target against
 
 target_link_libraries(mpc_controller_node ${catkin_LIBRARIES} ${ACADO_SHARED_LIBRARIES} ${PROJECT_NAME})
-add_dependencies(mpc_controller_node ${PROJECT_NAME}_gencfg)
 #############
 ## Install ##
 #############

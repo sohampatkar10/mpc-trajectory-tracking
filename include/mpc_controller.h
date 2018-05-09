@@ -14,49 +14,98 @@
 #include <tf/transform_broadcaster.h>
 #include <sensor_msgs/JointState.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <sensor_msgs/JointState.h>
+#include <std_msgs/Float64.h>
 
 #include <gazebo_aerial_manipulation_plugin/RollPitchYawThrust.h>
 #include <gazebo_aerial_manipulation_plugin/RPYPose.h>
 #include <gazebo_aerial_manipulation_plugin/JointCommand.h>
 #include <gazebo_aerial_manipulation_plugin/atomic.h>
 
-#include <quad_arm_trajectory_tracking/MpcConfig.h>
-#include <quad_arm_trajectory_tracking/FlatState.h>
-#include <dynamic_reconfigure/server.h>
-
 USING_NAMESPACE_ACADO
 
 class MPController {
 
 public:
+  /**
+  * Constructor
+  */
   MPController();
-  void setGoal(double vx, double vy, double vz, double yaw);
-  void setAccGoal(double ax, double ay, double az, double yaw);
+  /**
+  * Sets Position goal
+  */
   void setPosGoal(double px, double py, double pz, double yaw);
+  /**
+  * Sets velocity goal
+  */
+  void setVelGoal(double vx, double vy, double vz, double yaw);
+  /**
+  * Sets acceleration goal
+  */
+  void setAccGoal(double ax, double ay, double az, double yaw);
 
-  ros::CallbackQueue pose_callback_queue;
-  ros::CallbackQueue controller_callback_queue;
+  /**
+  * Separate callback queue for sensor data
+  */
+  ros::CallbackQueue sensor_callback_queue;
+
 private:
-  // void posSubCallback(const quad_arm_trajectory_tracking::FlatState::ConstPtr& state_msg);
+  /**
+  * Pose data callback
+  */
   void posSubCallback(const gazebo_aerial_manipulation_plugin::RPYPose::ConstPtr& pose_msg);
+  /**
+  * Velocity data callback
+  */
+  void velSubCallback(const geometry_msgs::TwistStamped::ConstPtr& vel_msg);
+  /**
+  * Joint state callback
+  */
+  void jointSubCallback(const sensor_msgs::JointState::ConstPtr& joint_msg);
+  /**
+  * Acceleration data callback
+  */
+  void accnSubCallback(const geometry_msgs::Vector3::ConstPtr& accn_msg);
+  /**
+  * Yaw rate callback
+  */
+  void yawRateSubCallback(const std_msgs::Float64::ConstPtr& yr_msg);
+  /**
+  * Timer callback for position controller
+  */
   void posControllerTimerCallback(const ros::TimerEvent& event);
+  /**
+  * Timer callback for velocity controller
+  */
   void velocityControllerTimer(const ros::TimerEvent& event);
-  void rpyCmdTimerCallback(const ros::TimerEvent& event);
+  /**
+  * Timer callback for MPC
+  */
   void mpcTimerCallback(const ros::TimerEvent& event);
+  /**
+  * Timer callback for hovering state
+  */
   void hoverCallback(const ros::TimerEvent& event);
+  /**
+  * Callback for toggling MPC
+  */
   void mpcTimerToggleCallback(const std_msgs::Bool::ConstPtr& msg);
 
-  void reconfigureCallback(quad_arm_trajectory_tracking::MpcConfig& config, uint32_t level);
-  void reset();
 private:
-  const double tolerance = 1e-4;
-  const double pos_tolerance = 5e-2;
-  const double kp_p = 1.0;
-  const double ki_p = 0.01;
-  const double kp = 5.0;
-  const double ki = 0.01;
-  const double kt = 0.1;
+  const double tolerance = 1e-4; 
+  const double pos_tolerance = 1e-2;
+  const double kp_p = 2.0; ///< kp for position controller
+  const double ki_p = 0.01; ///< ki for positoion controller
+  const double kp_z = 5.0; ///< kp in z for velocity controller
+  const double kp_y = 5.0; ///< kp in y for velocity controller
+  const double kp_x = 5.0; ///< kp in z for velocity controller
+  const double ki = 0.01; // ki for velocity controller
+  const double kt = 0.101; // Thrust gain 
 
+  const double controller_timer_duration = 0.01; // Velocity controller timer duration
+  const double mpc_timer_duration = 0.2; // MPC Timer duration
+
+  /* Cumulative errors */
   double cex = 0;
   double cey = 0;
   double cez = 0;
@@ -64,39 +113,56 @@ private:
   double cey_p = 0;
   double cez_p = 0;
 
-  ros::NodeHandle nh;
-  ros::SubscribeOptions pose_so;
+  ros::NodeHandle nh; ///< Nodehandle
+  
+  /* Publishers */
   ros::Publisher rpyPub;
-  tf::TransformBroadcaster br;
+  ros::Publisher jointPub;
+
+  /* Timers */
   ros::Timer controllerTimer;
   ros::Timer posControllerTimer;
   ros::Timer rpyCmdTimer;
   ros::Timer mpcTimer;
   ros::Timer hoverTimer;
-  ros::Publisher refPub;
-  ros::Publisher pathPub;
-  ros::Publisher jointPub;
-  ros::Publisher posPub;
+
+  /* Subscribers */
   ros::Subscriber posSub;
+  ros::Subscriber velSub;
+  ros::Subscriber accnSub;
+  ros::Subscriber yawRateSub;
+  ros::Subscriber jointSub;
   ros::Subscriber toggleSub;
 
+  /* Sensor data */
   Atomic<geometry_msgs::PoseStamped> quadPose_;
   Atomic<geometry_msgs::TwistStamped> quadVel_;
   Atomic<geometry_msgs::Vector3> quadAcc_;
-  Atomic<geometry_msgs::Vector3> quadJerk_;
+  Atomic<sensor_msgs::JointState> jointState_;
+  Atomic<double> yaw_rate_;
 
-  geometry_msgs::Vector3 goal;
-  double goal_yaw;
-  geometry_msgs::Vector3 goal_acc;
+  /* goals */
   geometry_msgs::Vector3 goal_pos;
+  geometry_msgs::Vector3 goal_vel;
+  double goal_yaw;
 
-  double ts = 0.0;
-  double te = 1.0;
-  int numSteps = 10;
-  int totalSteps = 40;
-  const int tfinal = 10;
-  DifferentialEquation f;
+  /* ACADO Variables */
+  const double ts = 0.0; ///< Start time
+  const double te = 1.0; ///< End time
+  const int numSteps = 10; ///< number of steps for output trajectory
+  const int totalSteps = 40; ///< number of steps in reference trajectory
+  const int tfinal = 10; ///< Final time of reference trajectory
 
+  DifferentialEquation f; ///< Differential equation
+
+  /* 
+  * Differential states :
+  * x{i} is the ith time derivative of x
+  * x,y,z is position.
+  * ga is yaw
+  * q is joint angle
+  *
+  */
   DifferentialState x0, y0, z0, 
                     x1, y1, z1,
                     x2, y2, z2,
@@ -104,28 +170,35 @@ private:
                     ga0, ga1,
                     q1, q2;
 
+  /* Control variables */
   Control x4, y4, z4, ga2, qd1, qd2;
 
+  /* Reference trajectory */
   std::vector<std::vector<double>> ref_states;
   std::vector<std::vector<double>> ref_controls;
 
-  Grid timeGrid;
-  VariablesGrid output_states;
-  VariablesGrid output_controls;
+  Grid timeGrid; ///< time grid
+  VariablesGrid output_states; ///< Stores output states of optimization
+  VariablesGrid output_controls; ///< Stores output controls of optimization
 
-  nav_msgs::Path ref_path;
-  nav_msgs::Path actual_path;
-
+  /* 
+  *
+  * Variable to keep track of the start index of 
+  * the reference trajectory corresponding to 
+  * time passed.
+  *
+  */
   int to = 0;
   ros::Time mpc_start_time;
 
-  std::ofstream output_file;
-  std::ofstream achieved_file;
+  /* Files to store the outputs of MPC*/
+  std::ofstream output_file; // States found from optimization
+  std::ofstream achieved_file; // States actually acheived
 
-  Atomic<std::deque<geometry_msgs::PoseStamped>> measurements_;
-  Atomic<bool> buffer_ready_;
-
+  /**
+  * The timestep of the output trajectory might be smaller than 
+  * mpc timestep. In this case, this variable gives the index of the
+  * state in the output trajectory that corresponds to the mpc timestep
+  */
   int prop_steps;
-  boost::shared_ptr<dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig> > reconfigserver;
-  dynamic_reconfigure::Server<quad_arm_trajectory_tracking::MpcConfig>::CallbackType reconfigcallbacktype;
 };
